@@ -3,8 +3,9 @@ package imgo
 
 import (
 	"errors"
-	"math"
 	"image"
+	"io"
+	"math"
 	"runtime"
 )
 
@@ -13,37 +14,64 @@ type resamplingFilter struct {
 	Kernel  func(float64) float64
 }
 
-func ResizeForMatrix(filepath string, width int, height int)(imgMatrix [][][]uint8 , err error){
-	img,err1:=DecodeImage(filepath)
-	
+func ResizeForMatrix2(body io.ReadCloser, width int, height int) (imgMatrix [][][]uint8, err error) {
+	defer body.Close()
+	img, _, err1 := image.Decode(body)
+
 	if err1 != nil {
 		err = err1
 		return
 	}
-	
-	nrgba:=convertToNRGBA(img)
-	src:=Resize(nrgba,width,height)
-	
-	imgMatrix = NewRGBAMatrix(height,width)
-	
-	
-	for i:=0;i<height;i++{
-		for j:=0;j<width;j++{
-			c:=src.At(j,i)
-			r,g,b,a:=c.RGBA()
-			imgMatrix[i][j][0]=uint8(r)
-			imgMatrix[i][j][1]=uint8(g)
-			imgMatrix[i][j][2]=uint8(b)
-			imgMatrix[i][j][3]=uint8(a)
-			
+
+	nrgba := convertToNRGBA(img)
+	src := Resize(nrgba, width, height)
+
+	imgMatrix = NewRGBAMatrix(height, width)
+
+	for i := 0; i < height; i++ {
+		for j := 0; j < width; j++ {
+			c := src.At(j, i)
+			r, g, b, a := c.RGBA()
+			imgMatrix[i][j][0] = uint8(r)
+			imgMatrix[i][j][1] = uint8(g)
+			imgMatrix[i][j][2] = uint8(b)
+			imgMatrix[i][j][3] = uint8(a)
+
 		}
 	}
-	
+
+	return
+}
+func ResizeForMatrix(filepath string, width int, height int) (imgMatrix [][][]uint8, err error) {
+	img, err1 := DecodeImage(filepath)
+
+	if err1 != nil {
+		err = err1
+		return
+	}
+
+	nrgba := convertToNRGBA(img)
+	src := Resize(nrgba, width, height)
+
+	imgMatrix = NewRGBAMatrix(height, width)
+
+	for i := 0; i < height; i++ {
+		for j := 0; j < width; j++ {
+			c := src.At(j, i)
+			r, g, b, a := c.RGBA()
+			imgMatrix[i][j][0] = uint8(r)
+			imgMatrix[i][j][1] = uint8(g)
+			imgMatrix[i][j][2] = uint8(b)
+			imgMatrix[i][j][3] = uint8(a)
+
+		}
+	}
+
 	return
 }
 
 // resize size of image
-func Resize(src *image.NRGBA,width int, height int) *image.NRGBA {
+func Resize(src *image.NRGBA, width int, height int) *image.NRGBA {
 	dstW, dstH := width, height
 
 	if dstW < 0 || dstH < 0 {
@@ -71,14 +99,14 @@ func Resize(src *image.NRGBA,width int, height int) *image.NRGBA {
 	}
 
 	var dst *image.NRGBA
-	
+
 	var sinc = func(x float64) float64 {
 		if x == 0 {
 			return 1
 		}
 		return math.Sin(math.Pi*x) / (math.Pi * x)
 	}
-	
+
 	var filter resamplingFilter = resamplingFilter{
 		Support: 3.0,
 		Kernel: func(x float64) float64 {
@@ -109,9 +137,6 @@ func Resize(src *image.NRGBA,width int, height int) *image.NRGBA {
 
 	return dst
 }
-
-
-
 
 func resizeHorizontal(src *image.NRGBA, width int, filter resamplingFilter) *image.NRGBA {
 	srcBounds := src.Bounds()
@@ -382,37 +407,37 @@ func resizeNearest(src *image.NRGBA, width, height int) *image.NRGBA {
 }
 
 // create a three dimenson slice
-func New3DSlice(x int , y int , z int)(theSlice [][][]uint8){
-	theSlice = make([][][]uint8,x,x)
+func New3DSlice(x int, y int, z int) (theSlice [][][]uint8) {
+	theSlice = make([][][]uint8, x, x)
 	for i := 0; i < x; i++ {
-        s2 := make([][]uint8, y, y) 
-        for j:=0 ; j < y; j++ {
-			s3 := make([]uint8,z,z)
-			s2[j] = s3 
+		s2 := make([][]uint8, y, y)
+		for j := 0; j < y; j++ {
+			s3 := make([]uint8, z, z)
+			s2[j] = s3
 		}
-		theSlice[i] = s2  
-    }
-	return 
-}
-
-// create a new rgba matrix
-func NewRGBAMatrix(height int,width int)(rgbaMatrix [][][]uint8){
-	rgbaMatrix = New3DSlice(height,width,4)
+		theSlice[i] = s2
+	}
 	return
 }
 
-func Matrix2Vector(imgMatrix [][][]uint8)(vector []uint8){
-	h:=len(imgMatrix)
-	w:=len(imgMatrix[0])
-	r:=len(imgMatrix[0][0])
-	length:=h*w*r
-	
-	vector = make([]uint8,length)
-	
-	for i:=0; i<h; i++ {
-		for j:=0; j<w; j++ {
-			for k:=0; k<r-1; k++ {
-				vector = append(vector,imgMatrix[i][j][k])
+// create a new rgba matrix
+func NewRGBAMatrix(height int, width int) (rgbaMatrix [][][]uint8) {
+	rgbaMatrix = New3DSlice(height, width, 4)
+	return
+}
+
+func Matrix2Vector(imgMatrix [][][]uint8) (vector []uint8) {
+	h := len(imgMatrix)
+	w := len(imgMatrix[0])
+	r := len(imgMatrix[0][0])
+	length := h * w * r
+
+	vector = make([]uint8, length)
+
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			for k := 0; k < r-1; k++ {
+				vector = append(vector, imgMatrix[i][j][k])
 			}
 		}
 	}
@@ -420,36 +445,36 @@ func Matrix2Vector(imgMatrix [][][]uint8)(vector []uint8){
 }
 
 func Dot(x []uint8, y []uint8) float64 {
-	xlen:=len(x)
-	
+	xlen := len(x)
+
 	var sum float64 = 0
-	for i:=0; i<xlen; i++ {
-			sum = sum + float64(x[i])*float64(y[i])
-			
+	for i := 0; i < xlen; i++ {
+		sum = sum + float64(x[i])*float64(y[i])
+
 	}
 	return sum
 }
 
-type IterFunc func(i int, j int, k int, src [][][]uint8)[][][]uint8
+type IterFunc func(i int, j int, k int, src [][][]uint8) [][][]uint8
 
-func Iterator(filepath string, iter IterFunc)(imgMatrix [][][]uint8, err error ){
-	imgMatrix,err = Read(filepath)
+func Iterator(filepath string, iter IterFunc) (imgMatrix [][][]uint8, err error) {
+	imgMatrix, err = Read(filepath)
 	if err != nil {
-		return 
+		return
 	}
-	
-	height:=len(imgMatrix)
-	width:=len(imgMatrix[0])
-	pix:=len(imgMatrix[0][0])
+
+	height := len(imgMatrix)
+	width := len(imgMatrix[0])
+	pix := len(imgMatrix[0][0])
 	if height == 0 || width == 0 {
 		err = errors.New("The input of matrix is illegal!")
 		return
 	}
-	
-	for i:=0; i<height; i++ {
-		for j:=0; j<width; j++ {
-			for k:=0; k<pix; k++ {
-				imgMatrix = iter(i,j,k,imgMatrix)
+
+	for i := 0; i < height; i++ {
+		for j := 0; j < width; j++ {
+			for k := 0; k < pix; k++ {
+				imgMatrix = iter(i, j, k, imgMatrix)
 			}
 		}
 	}
