@@ -9,7 +9,7 @@ import (
 	"math"
 )
 
-func GetVector(body io.ReadCloser) (vector []uint8, err error) {
+func GetVector(body io.ReadCloser) (vector []uint8, cos float64, err error) {
 	matrix, err2 := ResizeForMatrix2(body, 80, 60)
 	if err2 != nil {
 		err = err2
@@ -17,11 +17,12 @@ func GetVector(body io.ReadCloser) (vector []uint8, err error) {
 	}
 
 	vector = Matrix2Vector(matrix)
+	cos = math.Sqrt(Dot(vector, vector))
 	return
 }
 
 //calculate Cosine Similarity of two images, input two file path
-func CosineSimilarity2(vector []uint8, src2 string) (cossimi float64, err error) {
+func CosineSimilarity2(vector []uint8, cos float64, src2 string) (cossimi float64, err error) {
 	matrix2, err2 := ResizeForMatrix(src2, 80, 60)
 	if err2 != nil {
 		err = err2
@@ -31,10 +32,10 @@ func CosineSimilarity2(vector []uint8, src2 string) (cossimi float64, err error)
 	myx := vector
 	myy := Matrix2Vector(matrix2)
 	cos1 := Dot(myx, myy)
-	cos21 := math.Sqrt(Dot(myx, myx))
+	//	cos21 := math.Sqrt(Dot(myx, myx))
 	cos22 := math.Sqrt(Dot(myy, myy))
 
-	cossimi = cos1 / (cos21 * cos22)
+	cossimi = cos1 / (cos * cos22)
 	return
 }
 
